@@ -47,7 +47,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 // ****************************************************************************
 
-#include "CCDFrameInstance.h"
+#include "INDIMountInstance.h"
 
 
 #include <pcl/AutoViewLock.h>
@@ -67,21 +67,21 @@ namespace pcl
 
 // ----------------------------------------------------------------------------
 
-CCDFrameInstance::CCDFrameInstance( const MetaProcess* m ) :
+INDIMountInstance::INDIMountInstance( const MetaProcess* m ) :
 ProcessImplementation( m )
 {
 
 }
 
-CCDFrameInstance::CCDFrameInstance( const CCDFrameInstance& x ) :
+INDIMountInstance::INDIMountInstance( const INDIMountInstance& x ) :
 ProcessImplementation( x )
 {
    Assign( x );
 }
 
-void CCDFrameInstance::Assign( const ProcessImplementation& p )
+void INDIMountInstance::Assign( const ProcessImplementation& p )
 {
-   const CCDFrameInstance* x = dynamic_cast<const CCDFrameInstance*>( &p );
+   const INDIMountInstance* x = dynamic_cast<const INDIMountInstance*>( &p );
    if ( x != 0 )
    {
 	  
@@ -90,12 +90,12 @@ void CCDFrameInstance::Assign( const ProcessImplementation& p )
 }
 
 
-class CCDFrameEngine
+class INDIMountEngine
 {
 public:
 
    template <class P>
-   static void Apply( GenericImage<P>& image, const CCDFrameInstance& instance )
+   static void Apply( GenericImage<P>& image, const INDIMountInstance& instance )
    {
       /*
        * Your magic comes here...
@@ -105,13 +105,13 @@ public:
 };
 
 
-bool CCDFrameInstance::CanExecuteOn( const View&, pcl::String& whyNot ) const
+bool INDIMountInstance::CanExecuteOn( const View&, pcl::String& whyNot ) const
 {
    whyNot = "INDI client can only be executed in the global context.";
    return false;
 }
 
-bool CCDFrameInstance::CanExecuteGlobal( pcl::String& whyNot ) const
+bool INDIMountInstance::CanExecuteGlobal( pcl::String& whyNot ) const
 {
    whyNot.Clear();
    return true;
@@ -121,7 +121,7 @@ bool CCDFrameInstance::CanExecuteGlobal( pcl::String& whyNot ) const
 
 
 
-bool CCDFrameInstance::ExecuteGlobal()
+bool INDIMountInstance::ExecuteGlobal()
 {
    return true;
 }

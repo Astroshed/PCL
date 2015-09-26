@@ -184,6 +184,12 @@ bool PixInsightINDIInstance::sendNewPropertyValue(const INDINewPropertyListItem&
 	return sendNewProperty(isAsynch);
 }
 
+bool PixInsightINDIInstance::sendNewPropertyVector(const NewPropertyListType& propVector,bool isAsynch){
+	//p_newPropertyList.Clear();
+	p_newPropertyList.Append(propVector);
+	return sendNewProperty(isAsynch);
+}
+
 bool PixInsightINDIInstance::sendNewProperty(bool isAsynchCall) {
 	//Precondition: NewPropertyList contains ony elements of the same property
 	String deviceStr;
@@ -198,6 +204,8 @@ bool PixInsightINDIInstance::sendNewProperty(bool isAsynchCall) {
 
 	if (p_newPropertyList.IsEmpty())
 		return false; //Nothing to do
+
+	//TODO check that client is connected
 
 	for (pcl::Array<INDINewPropertyListItem>::iterator iter=p_newPropertyList.Begin(); iter!=p_newPropertyList.End(); ++iter){
 		if (iter->NewPropertyValue.IsEmpty()) {
@@ -370,7 +378,7 @@ bool PixInsightINDIInstance::sendNewProperty(bool isAsynchCall) {
 	return true;
 }
 
- bool PixInsightINDIInstance::getINDIPropertyItem(String device, String property, String element,INDIPropertyListItem& result ){
+ bool PixInsightINDIInstance::getINDIPropertyItem(String device, String property, String element,INDIPropertyListItem& result, bool formatted ){
 
 	for (pcl::Array<INDIPropertyListItem>::iterator iter=p_propertyList.Begin(); iter!=p_propertyList.End(); ++iter){
 
@@ -378,7 +386,7 @@ bool PixInsightINDIInstance::sendNewProperty(bool isAsynchCall) {
 			result.Device=device;
 			result.Property=property;
 			result.Element=element;
-			if (iter->PropertyTypeStr==String("INDI_NUMBER")){
+			if (iter->PropertyTypeStr==String("INDI_NUMBER") && formatted){
 				result.PropertyValue=PropertyUtils::getFormattedNumber(iter->PropertyValue,iter->PropertyNumberFormat);
 			} else {
 				result.PropertyValue=iter->PropertyValue;
@@ -390,6 +398,30 @@ bool PixInsightINDIInstance::sendNewProperty(bool isAsynchCall) {
 	}
 	return false;
 }
+
+ bool PixInsightINDIInstance::getINDIActiveSwitchPropertyItem(String device, String property, INDIPropertyListItem& result ){
+
+ 	for (pcl::Array<INDIPropertyListItem>::iterator iter=p_propertyList.Begin(); iter!=p_propertyList.End(); ++iter){
+
+ 		if (iter->PropertyTypeStr!=String("INDI_SWITCH"))
+ 			continue;
+
+ 		if (iter->PropertyValue!=String("ON"))
+ 			continue;
+
+ 		if ((iter->Device==device) && (iter->Property==property)  ){
+ 			result.Device=device;
+ 			result.Property=property;
+ 			result.Element=iter->Element;
+ 			result.PropertyValue=iter->PropertyValue;
+ 			result.PropertyState=iter->PropertyState;
+ 			result.ElementLabel=iter->ElementLabel;
+ 			return true;
+ 		}
+
+ 	}
+ 	return false;
+ }
 
 void PixInsightINDIInstance::writeCurrentMessageToConsole(){
 	if (Console().IsCurrentThreadConsole()){

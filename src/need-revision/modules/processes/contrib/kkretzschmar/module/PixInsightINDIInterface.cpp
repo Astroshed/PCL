@@ -106,7 +106,7 @@ const char** PixInsightINDIInterface::IconImageXPM() const
 
 InterfaceFeatures PixInsightINDIInterface::Features() const
 {
-	return   InterfaceFeature::DragObject | InterfaceFeature::ApplyGlobalButton | InterfaceFeature::ApplyToViewButton | InterfaceFeature::BrowseDocumentationButton | InterfaceFeature::ResetButton;
+	return   InterfaceFeature::DragObject |   InterfaceFeature::BrowseDocumentationButton;
 }
 
 void PixInsightINDIInterface::ApplyInstance() const
@@ -200,7 +200,7 @@ void PixInsightINDIInterface::__EditCompleted( Edit& sender )
       instance.p_host = sender.Text();
 }
 
-void PixInsightINDIInterface::__CameraListButtons_Click( Button& sender, bool checked )
+void PixInsightINDIInterface::Buttons_Click( Button& sender, bool checked )
 {
         
         if ( sender == GUI->ConnectServer_PushButton )
@@ -210,12 +210,15 @@ void PixInsightINDIInterface::__CameraListButtons_Click( Button& sender, bool ch
 				if (indiClient.get() == 0)
 					indiClient.reset(new INDIClient(&instance));
 
+				if (indiClient.get()->serverIsConnected())
+					return;
+
 				IsoString ASCIIHost(instance.p_host);
-				indiClient->setServer(ASCIIHost.c_str() , instance.p_port);
+				indiClient.get()->setServer(ASCIIHost.c_str() , instance.p_port);
 
 				bool connected=false;
 
-				connected = indiClient->connectServer();
+				connected = indiClient.get()->connectServer();
 
 				if (connected){
 					GUI->UpdateDeviceList_Timer.Start();
@@ -235,8 +238,11 @@ void PixInsightINDIInterface::__CameraListButtons_Click( Button& sender, bool ch
                 if (indiClient.get() == 0)
 					indiClient.reset(new INDIClient(&instance));
 
-				if (indiClient->serverIsConnected())
-					indiClient->disconnectServer();
+
+				if (indiClient.get()->serverIsConnected())
+					indiClient.get()->disconnectServer();
+				else
+					return;
 
 
 				GUI->UpdateDeviceList_Timer.Stop();
@@ -255,6 +261,7 @@ void PixInsightINDIInterface::__CameraListButtons_Click( Button& sender, bool ch
 				m_propertyTreeMap.clear();
 				// flag property list items as Insert to create new property tree
 
+
 				for (PixInsightINDIInstance::PropertyListType::iterator iter=instance.p_propertyList.Begin() ; iter!=instance.p_propertyList.End(); ++iter){
 					iter->PropertyFlag=Insert;
 				}
@@ -263,8 +270,7 @@ void PixInsightINDIInterface::__CameraListButtons_Click( Button& sender, bool ch
 				// clear property list
 				GUI->PropertyList_TreeBox.Clear();
 
-
-				if (!indiClient->serverIsConnected()) {
+				if (!indiClient.get()->serverIsConnected()) {
 					GUI->ServerMessage_Label.SetText("Successfully disconnected from server");
 				}
 
@@ -281,11 +287,11 @@ void PixInsightINDIInterface::__CameraListButtons_Click( Button& sender, bool ch
 				for (pcl::IndirectArray<pcl::TreeBox::Node>::iterator it=selectedNodes.Begin(); it!=selectedNodes.End();++it){
 					IsoString deviceName((*it)->Text(TextColumn).To7BitASCII());
 					
-					INDI::BaseDevice* device = indiClient->getDevice(deviceName.c_str());
+					INDI::BaseDevice* device = indiClient.get()->getDevice(deviceName.c_str());
 
 					if (device)
 						if (!device->isConnected())
-							indiClient->connectDevice(deviceName.c_str());
+							indiClient.get()->connectDevice(deviceName.c_str());
 				}
 			}
             ERROR_HANDLER
@@ -300,24 +306,34 @@ void PixInsightINDIInterface::__CameraListButtons_Click( Button& sender, bool ch
 				for (pcl::IndirectArray<pcl::TreeBox::Node>::iterator it=selectedNodes.Begin(); it!=selectedNodes.End();++it){
 					IsoString deviceName((*it)->Text(TextColumn).To7BitASCII());
 
-					INDI::BaseDevice* device = indiClient->getDevice(deviceName.c_str());
+					INDI::BaseDevice* device = indiClient.get()->getDevice(deviceName.c_str());
 
 					if (device)
 						if (device->isConnected())
-							indiClient->disconnectDevice(deviceName.c_str());	
+							indiClient.get()->disconnectDevice(deviceName.c_str());
 
 					(*it)->Enable();
 				}
 			}
             ERROR_HANDLER
 		}
-		else if ( sender == GUI->RefreshDevice_PushButton)
+		else if ( sender == GUI->WatchDevice_PushButton)
 		{
 			try
-            {
-				UpdateDeviceList();
+			{
+				pcl::IndirectArray<pcl::TreeBox::Node> selectedNodes;
+				GUI->DeviceList_TreeBox.GetSelectedNodes(selectedNodes);
+
+				for (pcl::IndirectArray<pcl::TreeBox::Node>::iterator it=selectedNodes.Begin(); it!=selectedNodes.End();++it) {
+					IsoString deviceName((*it)->Text(TextColumn).To7BitASCII());
+
+					indiClient.get()->watchDevice(deviceName.c_str());
+				}
+				MessageBox mBox(String("Please reconnect to the INDI server to activate watching devices. Press first the \"Disconnect\" and then the \"Connect\" button in the server connection section."),
+								String("Reconnect to INDI server"),StdIcon::Information);
+				mBox.Execute();
 			}
-            ERROR_HANDLER
+			ERROR_HANDLER
 		}
 }
 
@@ -359,18 +375,26 @@ void PixInsightINDIInterface::UpdateDeviceList(){
 		deviceNode->getTreeBoxNode()->SetText( TextColumn, iter->DeviceName );
 		deviceNode->getTreeBoxNode()->SetAlignment( TextColumn, TextAlign::Left );
 
-		INDI::BaseDevice* device = indiClient->getDevice(IsoString(iter->DeviceName).c_str());
-		if (device && device->isConnected()){
-			Bitmap icon(String(":/bullets/bullet-ball-glass-green.png"));
-			deviceNode->getTreeBoxNode()->SetIcon(TextColumn,icon);		}
-		else {
-			Bitmap icon(":/bullets/bullet-ball-glass-grey.png");
-			deviceNode->getTreeBoxNode()->SetIcon(TextColumn,icon);
+		INDI::BaseDevice* device = indiClient.get()->getDevice(IsoString(iter->DeviceName).c_str());
+		if (device){
+			if (device->isConnected()){
+				Bitmap icon(String(":/bullets/bullet-ball-glass-green.png"));
+				deviceNode->getTreeBoxNode()->SetIcon(TextColumn,icon);
+			} else {
+				Bitmap icon(":/bullets/bullet-ball-glass-grey.png");
+				deviceNode->getTreeBoxNode()->SetIcon(TextColumn,icon);
+			}
+
+			if (indiClient.get()->isWatched(IsoString(iter->DeviceName).c_str())){
+				pcl::Font currentFont = deviceNode->getTreeBoxNode()->Font(TextColumn);
+				currentFont.SetBold();
+				deviceNode->getTreeBoxNode()->SetFont(TextColumn,currentFont);
+			}
 		}
 
 
+
 	}
-	//GUI->UpdateDeviceList_Timer.Stop();
 	GUI->DeviceList_TreeBox.EnableUpdates();
 
 }
@@ -414,24 +438,29 @@ PixInsightINDIInterface::GUIData::GUIData( PixInsightINDIInterface& w )
    ParameterPort_SpinBox.SetToolTip( "<p>INDI server port.</p>" );
    ParameterPort_SpinBox.OnValueUpdated( (SpinBox::value_event_handler)&PixInsightINDIInterface::__IntegerValueUpdated, w );
 
+   ParameterHost_Sizer.SetSpacing(4);
+   ParameterHost_Sizer.Add(ServerData_VSizer );
+   ParameterHost_Sizer.Add(ConnectionServer_Sizer );
+   ServerData_Sizer.SetSpacing( 4 );
+   ServerData_Sizer.Add( ParameterHost_Label );
+   ServerData_Sizer.Add( ParameterHost_Edit, 100);
+   ServerData_Sizer.Add( ParameterPort_Label );
+   ServerData_Sizer.Add( ParameterPort_SpinBox );
+   ServerData_VSizer.SetSpacing( 4 );
+   ServerData_VSizer.Add(ServerData_Sizer);
+   ServerData_VSizer.AddStretch();
    
-   ParameterHost_Sizer.SetSpacing( 4 );
-   ParameterHost_Sizer.Add( ParameterHost_Label );
-   ParameterHost_Sizer.Add( ParameterHost_Edit, 100);
-   ParameterHost_Sizer.Add( ParameterPort_Label );
-   ParameterHost_Sizer.Add( ParameterPort_SpinBox );
-   ParameterHost_Sizer.Add( ConnectionServer_Sizer );
-
    //pushbuttons
    ConnectionServer_Sizer.SetSpacing(4);
    ConnectServer_PushButton.SetText( "Connect" );
-   ConnectServer_PushButton.OnClick( (Button::click_event_handler) &PixInsightINDIInterface::__CameraListButtons_Click, w );
+   ConnectServer_PushButton.OnClick( (Button::click_event_handler) &PixInsightINDIInterface::Buttons_Click, w );
    DisconnectServer_PushButton.SetText( "Disconnect" );
-   DisconnectServer_PushButton.OnClick( (Button::click_event_handler) &PixInsightINDIInterface::__CameraListButtons_Click, w );
+   DisconnectServer_PushButton.OnClick( (Button::click_event_handler) &PixInsightINDIInterface::Buttons_Click, w );
 
   
    ConnectionServer_Sizer.Add(ConnectServer_PushButton);
    ConnectionServer_Sizer.Add(DisconnectServer_PushButton);
+   ConnectionServer_Sizer.AddStretch();
 
    INDIServerConnection_Control.SetFixedHeight(4*fnt.Height() +2);
 
@@ -445,19 +474,20 @@ PixInsightINDIInterface::GUIData::GUIData( PixInsightINDIInterface& w )
    DeviceList_TreeBox.EnableAlternateRowColor();
    DeviceList_TreeBox.EnableMultipleSelections();
    DeviceList_TreeBox.SetNumberOfColumns(1);
-   DeviceList_TreeBox.SetHeaderText(0,"Device");
+   DeviceList_TreeBox.SetHeaderText(TextColumn,"Device");
+
+
+   ConnectDevice_PushButton.SetText("Connect");
+   ConnectDevice_PushButton.OnClick((Button::click_event_handler) &PixInsightINDIInterface::Buttons_Click, w );
+   DisconnectDevice_PushButton.SetText("Disconnect");
+   DisconnectDevice_PushButton.OnClick((Button::click_event_handler) &PixInsightINDIInterface::Buttons_Click, w );
+   WatchDevice_PushButton.SetText("Watch");
+   WatchDevice_PushButton.OnClick((Button::click_event_handler) &PixInsightINDIInterface::Buttons_Click, w );
 
    DeviceAction_Sizer.SetSpacing(4);
-   ConnectDevice_PushButton.SetText("Connect");
-   ConnectDevice_PushButton.OnClick((Button::click_event_handler) &PixInsightINDIInterface::__CameraListButtons_Click, w );
-   DisconnectDevice_PushButton.SetText("Disconnect");
-   DisconnectDevice_PushButton.OnClick((Button::click_event_handler) &PixInsightINDIInterface::__CameraListButtons_Click, w );
-   RefreshDevice_PushButton.SetText("Refresh");
-   RefreshDevice_PushButton.OnClick((Button::click_event_handler) &PixInsightINDIInterface::__CameraListButtons_Click, w );
-
    DeviceAction_Sizer.Add(ConnectDevice_PushButton);
    DeviceAction_Sizer.Add(DisconnectDevice_PushButton);
-   DeviceAction_Sizer.Add(RefreshDevice_PushButton);
+   DeviceAction_Sizer.Add(WatchDevice_PushButton);
    DeviceAction_Sizer.AddStretch();
 
    INDIDevice_Sizer.Add(DeviceList_TreeBox);
@@ -489,17 +519,12 @@ PixInsightINDIInterface::GUIData::GUIData( PixInsightINDIInterface& w )
    ServerMessage_Sizer.Add(ServerMessage_Label);
    ServerMessage_Sizer.AddStretch();
 
-   RefreshProperty_PushButton.SetText("Refresh");
-   RefreshProperty_PushButton.OnClick((Button::click_event_handler) &PixInsightINDIInterface::PropertyButton_Click, w );
    EditProperty_PushButton.SetText("Edit");
    EditProperty_PushButton.OnClick((Button::click_event_handler) &PixInsightINDIInterface::PropertyButton_Click, w );
 
    INDIDeviceProperty_Sizer.Add(PropertyList_TreeBox);
    
-
    Buttons_Sizer.SetSpacing(4);
-   Buttons_Sizer.AddSpacing(10);
-   Buttons_Sizer.Add(RefreshProperty_PushButton);
    Buttons_Sizer.Add(EditProperty_PushButton);
    Buttons_Sizer.AddStretch();
 
@@ -584,11 +609,18 @@ void SetPropertyDialog::Cancel_Button_Click( Button& sender, bool checked ){
 		Cancel();
 }
 
-SetPropertyDialog* SetPropertyDialog::createPropertyDialog(IsoString indiType, IsoString numberFormat,PixInsightINDIInstance* indiInstance){
+SetPropertyDialog* SetPropertyDialog::createPropertyDialog(IsoString indiType, IsoString numberFormatExt,PixInsightINDIInstance* indiInstance){
 	if (indiType==IsoString("INDI_NUMBER") ){
-		size_t im = numberFormat.Find('m');
+		IsoString numberFormat;
+		double numberMin;
+		double numberMax;
+		double numberStep;
+		PropertyUtils::parseNumberFmtExt(numberFormatExt,numberFormat,numberMin,numberMax,numberStep);
+		size_t im = numberFormatExt.Find('m');
 		if (im!=IsoString::notFound){
-			return new EditNumberCoordPropertyDialog(indiInstance);
+			return new EditNumberCoordPropertyDialog(indiInstance,numberFormat,numberMin,numberMax,numberStep);
+		} else {
+			return new EditNumberPropertyDialog(indiInstance,numberFormat,numberMin,numberMax,numberStep);
 		}
 	}
 	if (indiType==IsoString("INDI_SWITCH") ){
@@ -649,33 +681,34 @@ void EditNumberCoordPropertyDialog::setPropertyValueString(String value){
 	value.Break(tokens,':',true);
 	assert(tokens.Length()==3);
 	tokens[0].TrimLeft();
-	Hour_Edit.SetText(tokens[0]);
-	Minute_Edit.SetText(tokens[1]);
-	Second_Edit.SetText(tokens[2]);
+
+	Hour_Edit.edit.SetText(tokens[0]);
+	Minute_Edit.edit.SetText(tokens[1]);
+	Second_Edit.edit.SetText(tokens[2]);
 }
 
-void EditNumberCoordPropertyDialog::EditCompleted( Edit& sender )
-{
-	if (sender==Hour_Edit){
-		m_hour=sender.Text().ToDouble();
-		m_minute=Minute_Edit.Text().ToDouble();
-		m_second=Second_Edit.Text().ToDouble();
+void EditNumberCoordPropertyDialog::NumericEditCompleted(NumericEdit& sender, double value) {
+	if (sender == Hour_Edit) {
+		m_hour = value;
+		m_minute = Minute_Edit.Value();
+		m_second = Second_Edit.Value();
 	}
-	if (sender==Minute_Edit){
-		m_hour=Hour_Edit.Text().ToDouble();
-		m_minute=sender.Text().ToDouble();
-		m_second=Second_Edit.Text().ToDouble();
+	if (sender == Minute_Edit) {
+		m_hour = Hour_Edit.Value();
+		m_minute = value;
+		m_second = Second_Edit.Value();
 	}
-	if (sender==Second_Edit){
-		m_hour=Hour_Edit.Text().ToDouble();
-		m_minute=Minute_Edit.Text().ToDouble();
-		m_second=sender.Text().ToDouble();
+	if (sender == Second_Edit) {
+		m_hour = Hour_Edit.Value();
+		m_minute = Minute_Edit.Value();
+		m_second = value;
 	}
-	double coord=m_hour + m_minute / 60 + m_second / 3600;
-	m_newPropertyListItem.NewPropertyValue=String(coord) ;
+	double sign = m_hour >= 0 ? 1.0 : -1.0;
+	double coord = sign * (fabs(m_hour) + m_minute / 60 + m_second / 3600);
+	m_newPropertyListItem.NewPropertyValue = String(coord);
 }
 
-EditNumberCoordPropertyDialog::EditNumberCoordPropertyDialog(PixInsightINDIInstance* indiInstance):SetPropertyDialog(indiInstance),m_hour(0),m_minute(0),m_second(0){
+EditNumberCoordPropertyDialog::EditNumberCoordPropertyDialog(PixInsightINDIInstance* indiInstance, const IsoString& numberFmt, double min, double max, double step):SetPropertyDialog(indiInstance),m_hour(0),m_minute(0),m_second(0){
 	pcl::Font fnt = Font();
 	int labelWidth = fnt.Width( String( '0',20 ) );
 	int editWidth = fnt.Width( String( '0',4 ) );
@@ -686,18 +719,24 @@ EditNumberCoordPropertyDialog::EditNumberCoordPropertyDialog(PixInsightINDIInsta
 	Property_Label.SetMinWidth(labelWidth);
 	Property_Label.SetTextAlignment( TextAlign::Left|TextAlign::VertCenter );
 
-	Hour_Edit.SetMaxWidth(editWidth);
-	Hour_Edit.OnEditCompleted( (Edit::edit_event_handler)&EditNumberCoordPropertyDialog::EditCompleted, *this );
+	Hour_Edit.AdjustEditWidth();
+	Hour_Edit.SetInteger();
+	if (min!=max){
+		Hour_Edit.SetRange(min,max);
+	}
+	Hour_Edit.OnValueUpdated( (NumericEdit::value_event_handler)&EditNumberCoordPropertyDialog::NumericEditCompleted, *this );
 
-	Colon1_Label.SetText(":");
+	Minute_Edit.label.SetText(":");
+	Minute_Edit.AdjustEditWidth();
+	Minute_Edit.SetInteger();
+    Minute_Edit.SetRange(0,59);
+	Minute_Edit.OnValueUpdated( (NumericEdit::value_event_handler)&EditNumberCoordPropertyDialog::NumericEditCompleted, *this );
 
-	Minute_Edit.SetMaxWidth(editWidth);
-	Minute_Edit.OnEditCompleted( (Edit::edit_event_handler)&EditNumberCoordPropertyDialog::EditCompleted, *this );
-
-	Colon2_Label.SetText(":");
-
-	Second_Edit.SetMaxWidth(editWidth);
-	Second_Edit.OnEditCompleted( (Edit::edit_event_handler)&EditNumberCoordPropertyDialog::EditCompleted, *this );
+	Second_Edit.label.SetText(":");
+	Second_Edit.AdjustEditWidth();
+	Second_Edit.SetInteger();
+	Second_Edit.SetRange(0,59);
+	Second_Edit.OnValueUpdated( (NumericEdit::value_event_handler)&EditNumberCoordPropertyDialog::NumericEditCompleted, *this );
 
 
 	OK_PushButton.SetText("OK");
@@ -709,9 +748,7 @@ EditNumberCoordPropertyDialog::EditNumberCoordPropertyDialog(PixInsightINDIInsta
 	Property_Sizer.SetSpacing(4);
 	Property_Sizer.Add(Property_Label);
 	Property_Sizer.Add(Hour_Edit);
-	Property_Sizer.Add(Colon1_Label);
 	Property_Sizer.Add(Minute_Edit);
-	Property_Sizer.Add(Colon2_Label);
 	Property_Sizer.Add(Second_Edit);
 	Property_Sizer.AddStretch();
 
@@ -730,6 +767,68 @@ EditNumberCoordPropertyDialog::EditNumberCoordPropertyDialog(PixInsightINDIInsta
 	SetSizer(Global_Sizer);
 
 }
+
+void EditNumberPropertyDialog::NumericEditCompleted(NumericEdit& sender, double value) {
+	m_newPropertyListItem.NewPropertyValue = String(value);
+}
+
+
+EditNumberPropertyDialog::EditNumberPropertyDialog(PixInsightINDIInstance* indiInstance, const IsoString& numberFmt, double min, double max, double step):SetPropertyDialog(indiInstance){
+	pcl::Font fnt = Font();
+	int labelWidth = fnt.Width( String( '0',20 ) );
+	int editWidth = fnt.Width( String( '0',4 ) );
+
+	int significandDigits=0;
+	int precision=0;
+	PropertyUtils::parseNumberFmt(numberFmt,significandDigits,precision);
+
+	SetWindowTitle(String("INDI number property value"));
+
+	Property_Label.SetMinWidth(labelWidth);
+	Property_Label.SetTextAlignment( TextAlign::Left|TextAlign::VertCenter );
+
+	Number_Edit.AdjustEditWidth();
+	if (precision==0){
+		Number_Edit.SetInteger();
+	} else {
+		Number_Edit.SetReal();
+		Number_Edit.SetPrecision(precision);
+	}
+	if (min!=max){
+		Number_Edit.SetRange(min,max);
+	}
+	Number_Edit.OnValueUpdated( (NumericEdit::value_event_handler)&EditNumberCoordPropertyDialog::NumericEditCompleted, *this );
+
+
+
+	OK_PushButton.SetText("OK");
+	OK_PushButton.OnClick((Button::click_event_handler) &SetPropertyDialog::Ok_Button_Click, *this );
+	Cancel_PushButton.SetText("Cancel");
+	Cancel_PushButton.OnClick((Button::click_event_handler) &SetPropertyDialog::Cancel_Button_Click, *this );
+
+	Property_Sizer.SetMargin(10);
+	Property_Sizer.SetSpacing(4);
+	Property_Sizer.Add(Property_Label);
+	Property_Sizer.Add(Number_Edit);
+	Property_Sizer.AddStretch();
+
+
+	Buttons_Sizer.SetSpacing(4);
+	Buttons_Sizer.AddSpacing(10);
+	Buttons_Sizer.AddStretch();
+	Buttons_Sizer.Add(OK_PushButton);
+	Buttons_Sizer.AddStretch();
+	Buttons_Sizer.Add(Cancel_PushButton);
+	Buttons_Sizer.AddStretch();
+
+	Global_Sizer.Add(Property_Sizer);
+	Global_Sizer.Add(Buttons_Sizer);
+
+	SetSizer(Global_Sizer);
+
+}
+
+
 
 void EditSwitchPropertyDialog::setPropertyValueString(String value){
 	if (value==String("ON")){
@@ -768,12 +867,8 @@ EditSwitchPropertyDialog::EditSwitchPropertyDialog(PixInsightINDIInstance* indiI
 	ON_Label.SetText("ON");
 	OFF_Label.SetText("OFF");
 
-	//ON_RadioButton.Uncheck();
 	ON_RadioButton.OnCheck((RadioButton::check_event_handler) &EditSwitchPropertyDialog::ButtonChecked,*this);
 
-
-	//OFF_RadioButton.Check();
-	//OFF_RadioButton.Disable(true);
 	OFF_RadioButton.OnCheck((RadioButton::check_event_handler) &EditSwitchPropertyDialog::ButtonChecked,*this);
 
 	OK_PushButton.SetText("OK");
@@ -822,9 +917,6 @@ void PixInsightINDIInterface::UpdatePropertyList(){
 		GUI->PropertyList_TreeBox.EnableUpdates();
 		return;
 	}
-	if (indiClient.get()!=NULL){
-		indiClient.get()->m_mutex.Lock();
-	}
 	PropertyNodeFactory factory;
 	for (PixInsightINDIInstance::PropertyListType::iterator iter=instance.p_propertyList.Begin() ; iter!=instance.p_propertyList.End(); ++iter){
 
@@ -864,7 +956,7 @@ void PixInsightINDIInterface::UpdatePropertyList(){
 		} else  {
 			PropertyNode* elemNode = propTree->addElementNode(iter->Device,iter->Property,iter->Element,iter->PropertyState,iter->PropertyLabel);
 			elemNode->setNodeINDIType(iter->PropertyTypeStr);
-			elemNode->setNodeINDINumberFormat(iter->PropertyNumberFormat);
+			elemNode->setNodeINDINumberFormat(PropertyUtils::createNumberFormatExt(iter->PropertyNumberFormat,iter->numberMin,iter->numberMax,iter->numberStep));
 			if (iter->PropertyTypeStr==String("INDI_NUMBER")){
 				elemNode->setNodeINDIValue(PropertyUtils::getFormattedNumber(iter->PropertyValue,iter->PropertyNumberFormat));
 			} else {
@@ -899,9 +991,6 @@ void PixInsightINDIInterface::UpdatePropertyList(){
 		if (iter!=instance.p_propertyList.End()){
 			iter->PropertyFlag=Idle;
 		}
-	}
-	if (indiClient.get()!=NULL){
-		indiClient.get()->m_mutex.Unlock();
 	}
 }
 
@@ -945,9 +1034,7 @@ void PixInsightINDIInterface::PropertyButton_Click( Button& sender, bool checked
 
 		GUI->SetPropDlg->Execute();
 	}
-	else if (sender==GUI->RefreshProperty_PushButton){
-		UpdatePropertyList();
-	}
+
 }
 
 } // pcl

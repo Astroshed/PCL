@@ -62,6 +62,7 @@
 #include <pcl/PushButton.h>
 #include <pcl/RadioButton.h>
 #include <pcl/TreeBox.h>
+#include <pcl/MessageBox.h>
 #include <pcl/ErrorHandler.h>
 #include <pcl/Timer.h>
 #include <pcl/Mutex.h>
@@ -81,6 +82,7 @@ namespace pcl
 class PropertyNode;
 class PropertyTree;
 class PixInsightINDIInterface;
+
 
 class SetPropertyDialog : public Dialog 
 {
@@ -157,11 +159,9 @@ private:
 	VerticalSizer       Global_Sizer;
 		HorizontalSizer		Property_Sizer;
 			Label               Property_Label;
-			Edit				Hour_Edit;
-			Label               Colon1_Label;
-			Edit				Minute_Edit;
-			Label               Colon2_Label;
-			Edit				Second_Edit;
+		    NumericEdit         Hour_Edit;
+			NumericEdit  		Minute_Edit;
+			NumericEdit			Second_Edit;
 		HorizontalSizer	Buttons_Sizer;
 			PushButton			OK_PushButton;
 			PushButton			Cancel_PushButton;
@@ -173,12 +173,31 @@ private:
 
 
 public:
-	EditNumberCoordPropertyDialog(PixInsightINDIInstance* indiInstance );
+	EditNumberCoordPropertyDialog(PixInsightINDIInstance* indiInstance,const IsoString& numberFmt, double min, double max, double step);
 	virtual ~EditNumberCoordPropertyDialog(){}
 
 	virtual void setPropertyLabelString(String label){Property_Label.SetText(label);}
 	virtual void setPropertyValueString(String value);
-	void EditCompleted( Edit& sender);
+	void NumericEditCompleted( NumericEdit& sender, double value);
+};
+
+class EditNumberPropertyDialog : public SetPropertyDialog {
+private:
+	VerticalSizer       Global_Sizer;
+		HorizontalSizer		Property_Sizer;
+			Label               Property_Label;
+		    NumericEdit         Number_Edit;
+		HorizontalSizer	Buttons_Sizer;
+			PushButton			OK_PushButton;
+			PushButton			Cancel_PushButton;
+
+public:
+	EditNumberPropertyDialog(PixInsightINDIInstance* indiInstance,const IsoString& numberFmt, double min, double max, double step);
+	virtual ~EditNumberPropertyDialog(){}
+
+	virtual void setPropertyLabelString(String label){Property_Label.SetText(label);}
+	virtual void setPropertyValueString(String value){Number_Edit.edit.SetText(value);}
+	void NumericEditCompleted( NumericEdit& sender, double value);
 };
 
 
@@ -226,11 +245,13 @@ public:
 	   SectionBar         INDIServer_SectionBar;
 	   Control			  INDIServerConnection_Control;
 		HorizontalSizer		ParameterHost_Sizer;
-            Label				ParameterHost_Label;
-            Edit				ParameterHost_Edit;
-            Label				ParameterPort_Label;
-            SpinBox				ParameterPort_SpinBox;
-			VerticalSizer		ConnectionServer_Sizer;
+		  VerticalSizer         ServerData_VSizer;
+		   HorizontalSizer		  ServerData_Sizer;
+              Label				  ParameterHost_Label;
+              Edit				  ParameterHost_Edit;
+              Label				  ParameterPort_Label;
+              SpinBox			  ParameterPort_SpinBox;
+		  VerticalSizer		     ConnectionServer_Sizer;
 				PushButton			ConnectServer_PushButton;
 				PushButton			DisconnectServer_PushButton;
 		SectionBar         INDIDevices_SectionBar;
@@ -240,14 +261,13 @@ public:
 			VerticalSizer		DeviceAction_Sizer;
 				PushButton			ConnectDevice_PushButton;
 				PushButton			DisconnectDevice_PushButton;
-				PushButton			RefreshDevice_PushButton;
+				PushButton			WatchDevice_PushButton;
 		SectionBar         INDIProperties_SectionBar;
 		Control			   INDIProperties_Control;
 		 HorizontalSizer    INDIDeviceProperty_Sizer;
 		 VerticalSizer		INDIDevicePropertyTreeBox_Sizer;
 			TreeBox				PropertyList_TreeBox;
-		 VerticalSizer			Buttons_Sizer;
-			PushButton			RefreshProperty_PushButton;
+		 VerticalSizer		  Buttons_Sizer;
 			PushButton			EditProperty_PushButton;
 		 HorizontalSizer      ServerMessage_Sizer;
 		    Label               ServerMessageLabel_Label;
@@ -281,7 +301,7 @@ public:
    void UpdateDeviceList();
 
    // Event Handlers
-   void __CameraListButtons_Click( Button& sender, bool checked );
+   void Buttons_Click( Button& sender, bool checked );
    void PropertyButton_Click( Button& sender, bool checked );
 
    void __RealValueUpdated( NumericEdit& sender, double value );
@@ -296,6 +316,7 @@ public:
    friend class  DevicePropertiesDialog;
    friend class  INDIClient;
    friend class  CCDFrameInterface;
+   friend class  INDIMountInterface;
 };
 
 // ----------------------------------------------------------------------------

@@ -2,20 +2,17 @@
 # PixInsight Makefile Generator Script v1.93
 # Copyright (C) 2009-2014 Pleiades Astrophoto
 ######################################################################
-# Automatically generated on Sat, 05 Sep 2015 12:10:10 GMT
+# Automatically generated on Sat, 05 Sep 2015 12:17:33 GMT
 # Project id ...... PixInsightINDIclient
-# Project type .... Module
+# Project type .... StaticLibrary
 # Platform ........ Linux/g++
 # Configuration ... Debug/x64
-# --------------------------------------------------------------------
-# Additional libraries:
-# z
 ######################################################################
 
 OBJ_DIR="$(PCLDIR)/module/linux/g++/x64/Debug"
 
 .PHONY: all
-all: $(OBJ_DIR)/PixInsightINDIclient-pxm.so
+all: $(OBJ_DIR)/libPixInsightINDIclient-pxi.a
 
 #
 # Source files
@@ -107,22 +104,22 @@ DEP_FILES= \
 
 -include $(DEP_FILES)
 
-$(OBJ_DIR)/PixInsightINDIclient-pxm.so: $(OBJ_FILES)
-	g++ -m64 -fPIC -Wl,-z,noexecstack -Wl,-O1 -shared -L"$(PCLLIBDIR64)" -L"$(PCLBINDIR64)" -o $(OBJ_DIR)/PixInsightINDIclient-pxm.so $(OBJ_FILES) -lz -lpthread -lPCL-pxi
-	$(MAKE) -f ./makefile-x64-debug --no-print-directory post-build
+$(OBJ_DIR)/libPixInsightINDIclient-pxi.a: $(OBJ_FILES)
+	ar r $(OBJ_DIR)/libPixInsightINDIclient-pxi.a $(OBJ_FILES)
+	$(MAKE) -f ./makefile-x64-debug-static --no-print-directory post-build
 
 .PHONY: clean
 clean:
-	rm -f $(OBJ_FILES) $(DEP_FILES) $(OBJ_DIR)/PixInsightINDIclient-pxm.so
+	rm -f $(OBJ_FILES) $(DEP_FILES) $(OBJ_DIR)/libPixInsightINDIclient-pxi.a
 
 .PHONY: post-build
 post-build:
-	cp $(OBJ_DIR)/PixInsightINDIclient-pxm.so $(PCLBINDIR64)
+	cp $(OBJ_DIR)/libPixInsightINDIclient-pxi.a $(PCLLIBDIR64)
 
 ./x64/Debug/%.o: ../../%.cpp
-	g++ -c -pipe -m64 -fPIC -D_REENTRANT -D__PCL_LINUX -I"$(PCLINCDIR)" -O0 -g -fvisibility=hidden -fvisibility-inlines-hidden -fnon-call-exceptions -Wall -Wno-parentheses -MMD -MP -MF"$(@:%.o=%.d)" -o"$@" "$<"
+	g++ -c -pipe -m64 -fPIC -D_REENTRANT -D__PCL_LINUX -I"$(PCLINCDIR)" -O0 -g -fnon-call-exceptions -Wall -Wno-parentheses -MMD -MP -MF"$(@:%.o=%.d)" -o"$@" "$<"
 	@echo ' '
 ./x64/Debug/%.o: ../../%.c
-	gcc -c -pipe -m64 -fPIC -D_REENTRANT -D__PCL_LINUX -I"$(PCLINCDIR)" -O0 -g -fvisibility=hidden -fvisibility-inlines-hidden -fnon-call-exceptions -Wall -Wno-parentheses -MMD -MP -MF"$(@:%.o=%.d)" -o"$@" "$<"
+	gcc -c -pipe -m64 -fPIC -D_REENTRANT -D__PCL_LINUX -I"$(PCLINCDIR)" -O0 -g -fnon-call-exceptions -Wall -Wno-parentheses -MMD -MP -MF"$(@:%.o=%.d)" -o"$@" "$<"
 	@echo ' '
 

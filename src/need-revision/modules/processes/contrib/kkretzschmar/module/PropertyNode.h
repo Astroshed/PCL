@@ -6,6 +6,7 @@
 // ****************************************************************************
 // This file is part of the standard PixInsightINDI PixInsight module.
 //
+// Copyright (c) 2013-2015, Klaus Kretzschmar. All Rights Reserved.
 // Copyright (c) 2003-2013, Pleiades Astrophoto S.L. All Rights Reserved.
 //
 // Redistribution and use in both source and binary forms, with or without
@@ -64,13 +65,16 @@ namespace pcl {
 	// Utiliy functions
 	class PropertyUtils{
 	public:
-		static IsoString getDevice(IsoString keyString);
-		static IsoString getProperty(IsoString keyString);
-		static IsoString getElement(IsoString keyString);
-		static IsoString getKey(IsoString INDI_device) {return c_sep+INDI_device;}
-		static IsoString getKey(IsoString INDI_device, IsoString INDI_property) { return c_sep+INDI_device+c_sep+INDI_property;}
-		static IsoString getKey(IsoString INDI_device, IsoString INDI_property,IsoString INDI_propertyElement){return c_sep+INDI_device+c_sep+INDI_property+c_sep+INDI_propertyElement; }
-		static IsoString getFormattedNumber(IsoString numberStr, IsoString numberFormat);
+		static IsoString getDevice(const IsoString& keyString);
+		static IsoString getProperty(const IsoString& keyString);
+		static IsoString getElement(const IsoString& keyString);
+		static IsoString getKey(const IsoString& INDI_device) {return c_sep+INDI_device;}
+		static IsoString getKey(const IsoString& INDI_device, const IsoString& INDI_property) { return c_sep+INDI_device+c_sep+INDI_property;}
+		static IsoString getKey(const IsoString& INDI_device, const IsoString& INDI_property,const IsoString& INDI_propertyElement){return c_sep+INDI_device+c_sep+INDI_property+c_sep+INDI_propertyElement; }
+		static IsoString getFormattedNumber(const IsoString& numberStr, IsoString numberFormat);
+		static IsoString createNumberFormatExt(const IsoString& numberFormat,double numberMinValue, double numberMaxValue,double numberStep);
+		static void parseNumberFmtExt(const IsoString& numberFormatExt, IsoString& numberFormat, double& numberMinValue, double& numberMaxValue,double& numberStep);
+		static void parseNumberFmt(const IsoString& numberFormat,int& significandDigits, int& precision);
 	};
 
 	typedef enum {
@@ -88,6 +92,7 @@ namespace pcl {
 		TreeBox::Node*              m_thisTreeBoxNode;
 	protected:
 		PropertyNode(PropertyNode* parent,IsoString INDI_device, IsoString INDI_property,IsoString INDI_propertyElement);
+
 	public:
 		PropertyNode():m_childs(),m_keyStr(IsoString("/")),m_thisTreeBoxNode(NULL){}
 		PropertyNode(IsoString keyStr):m_childs(),m_keyStr(keyStr),m_thisTreeBoxNode(NULL){}
@@ -132,10 +137,7 @@ namespace pcl {
 	    virtual IsoString getNodeINDIValue() const;
 	    virtual IsoString getNodeINDIType() const;
 
-
-
-
-		virtual bool accept(IPropertyVisitor* visitor, IsoString propertyKeyStr, IsoString newValue);
+	    virtual void accept(IPropertyVisitor* visitor, IsoString propertyKeyStr, IsoString newValue);
 
 		static PropertyNode* create(PropertyNode* parent,IsoString INDI_device, IsoString INDI_property,IsoString INDI_propertyElement, IsoString INDI_propertyType);
 	};
@@ -173,7 +175,6 @@ namespace pcl {
 	class IPropertyVisitor {
 	public:
 		virtual bool visit(PropertyNode* pNode,  IsoString propertyKeyStr, IsoString newPropertyValue) = 0;
-		virtual void postVisit(PropertyNode* pNode,  IsoString propertyKeyStr, IsoString newPropertyValue) = 0;
 		virtual ~IPropertyVisitor(){}
 	};
 
@@ -188,7 +189,6 @@ namespace pcl {
 
 		static IPropertyVisitor* create(){return new FindNodeVisitor();}
 		bool visit(PropertyNode* pNode, IsoString propertyKeyString, IsoString newPropertyString);
-		void postVisit(PropertyNode* pNode, IsoString propertyKeyString, IsoString newPropertyValue){}
 		bool foundNode(){return m_found;}
 		PropertyNode* getNode() const {return m_foundNode;}
 		void reset(){m_found=false;m_foundNode=NULL;}

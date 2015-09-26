@@ -1,8 +1,8 @@
-/// ****************************************************************************
+// ****************************************************************************
 // PixInsight Class Library - PCL 02.00.02.0584
 // Standard PixInsightINDI Process Module Version 01.00.02.0092
 // ****************************************************************************
-// PixInsightINDIInstance.cpp - Released 2013/03/24 18:42:27 UTC
+// PixInsightINDIProcess.cpp - Released 2013/03/24 18:42:27 UTC
 // ****************************************************************************
 // This file is part of the standard PixInsightINDI PixInsight module.
 //
@@ -47,91 +47,123 @@
 // POSSIBILITY OF SUCH DAMAGE.
 // ****************************************************************************
 
-#include "CCDFrameInstance.h"
+#include "INDIMountProcess.h"
+#include "INDIMountInterface.h"
+#include "INDIMountInstance.h"
 
-
-#include <pcl/AutoViewLock.h>
+#include <pcl/Arguments.h>
 #include <pcl/Console.h>
-#include <pcl/StdStatus.h>
+#include <pcl/Exception.h>
 #include <pcl/View.h>
-#include <pcl/Mutex.h>
-#if defined(__PCL_LINUX)
-#include <memory>
-#endif
+
 namespace pcl
 {
 
+// ----------------------------------------------------------------------------
 
-
-
+//#include "PixInsightINDIIcon.xpm"
 
 // ----------------------------------------------------------------------------
 
-CCDFrameInstance::CCDFrameInstance( const MetaProcess* m ) :
-ProcessImplementation( m )
-{
+INDIMountProcess* TheINDIMountProcess = 0;
 
+// ----------------------------------------------------------------------------
+
+INDIMountProcess::INDIMountProcess() : MetaProcess()
+{
+   TheINDIMountProcess = this;
 }
 
-CCDFrameInstance::CCDFrameInstance( const CCDFrameInstance& x ) :
-ProcessImplementation( x )
+// ----------------------------------------------------------------------------
+
+IsoString INDIMountProcess::Id() const
 {
-   Assign( x );
+   return "INDIMount";
 }
 
-void CCDFrameInstance::Assign( const ProcessImplementation& p )
-{
-   const CCDFrameInstance* x = dynamic_cast<const CCDFrameInstance*>( &p );
-   if ( x != 0 )
-   {
-	  
+// ----------------------------------------------------------------------------
 
-   }
+IsoString INDIMountProcess::Category() const
+{
+   return IsoString("INDI"); // No category
 }
 
+// ----------------------------------------------------------------------------
 
-class CCDFrameEngine
+uint32 INDIMountProcess::Version() const
 {
-public:
+   return 0x100; // required
+}
 
-   template <class P>
-   static void Apply( GenericImage<P>& image, const CCDFrameInstance& instance )
-   {
-      /*
-       * Your magic comes here...
-       */
-      Console().WriteLn( "<end><cbr>Ah, did I mention that I do just _nothing_ at all? :D" );
-   }
-};
+// ----------------------------------------------------------------------------
 
-
-bool CCDFrameInstance::CanExecuteOn( const View&, pcl::String& whyNot ) const
+String INDIMountProcess::Description() const
 {
-   whyNot = "INDI client can only be executed in the global context.";
+   return
+   "<html>"
+   "<p>Control INDI Mount devices./p>"
+   "</html>";
+}
+
+// ----------------------------------------------------------------------------
+
+const char** INDIMountProcess::IconImageXPM() const
+{
+   return 0; // PixInsightINDIIcon_XPM; ---> put a nice icon here
+}
+
+// ----------------------------------------------------------------------------
+
+bool INDIMountProcess::PrefersGlobalExecution() const
+{
+	return true;
+}
+// ----------------------------------------------------------------------------
+
+ProcessInterface* INDIMountProcess::DefaultInterface() const
+{
+   return TheINDIMountInterface;
+}
+// ----------------------------------------------------------------------------
+
+ProcessImplementation* INDIMountProcess::Create() const
+{
+   return new PixInsightINDIInstance( this );
+}
+
+// ----------------------------------------------------------------------------
+
+ProcessImplementation* INDIMountProcess::Clone( const ProcessImplementation& p ) const
+{
+   const INDIMountInstance* instPtr = dynamic_cast<const INDIMountInstance*>( &p );
+   return (instPtr != 0) ? new INDIMountInstance( *instPtr ) : 0;
+}
+
+// ----------------------------------------------------------------------------
+
+bool INDIMountProcess::CanProcessCommandLines() const
+{
    return false;
 }
 
-bool CCDFrameInstance::CanExecuteGlobal( pcl::String& whyNot ) const
-{
-   whyNot.Clear();
-   return true;
-}
-
-
-
-
-
-bool CCDFrameInstance::ExecuteGlobal()
-{
-   return true;
-}
-
-
-
 // ----------------------------------------------------------------------------
 
+static void ShowHelp()
+{
+   Console().Write(
+"<raw>"
+"Nothing to show."
+"</raw>" );
+}
+
+int INDIMountProcess::ProcessCommandLine( const StringList& argv ) const
+{
+   return 0;
+}
+
+// ----------------------------------------------------------------------------
 
 } // pcl
 
 // ****************************************************************************
-// EOF PixInsightINDIInstance.cpp - Released 2013/03/24 18:42:27 UTC
+// EOF PixInsightINDIProcess.cpp - Released 2013/03/24 18:42:27 UTC
